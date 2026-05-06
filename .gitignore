@@ -1,0 +1,19 @@
+# Node modules
+frontend/node_modules
+
+# React build folder
+frontend/build
+
+# Environment variables
+.env
+
+# Python cache (for Flask later)
+__pycache__/
+*.pyc
+
+# VS Code settings
+.vscode/
+
+# Mac/Windows system files
+.DS_Store
+Thumbs.db
