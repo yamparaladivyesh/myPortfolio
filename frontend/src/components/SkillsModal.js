@@ -1,6 +1,5 @@
 import React from 'react';
 import ModalWrapper from './ModalWrapper';
-import { skillGroups } from '../data/portfolioData';
 
 const SkillsModal = ({ open, onClose, skillGroups }) => {
   return (
