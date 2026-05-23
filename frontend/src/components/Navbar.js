@@ -8,6 +8,11 @@ const Navbar = ({ activePanel, onTogglePanel, mobileOpen, setMobileOpen }) => {
     { label: 'SkillMatch', panel: 'skillmatch' },
   ];
 
+  const handleNavClick = (panel) => {
+    onTogglePanel(panel);
+    setMobileOpen(false);
+  };
+
   return (
     <header className="navbar-shell">
       <div className="navbar-inner">
@@ -21,7 +26,7 @@ const Navbar = ({ activePanel, onTogglePanel, mobileOpen, setMobileOpen }) => {
               <button
                 key={item.label}
                 className={`nav-link ${activePanel === item.panel ? 'active' : ''}`}
-                onClick={() => onTogglePanel(item.panel)}
+                onClick={() => handleNavClick(item.panel)}
               >
                 {item.label}
               </button>
@@ -30,7 +35,7 @@ const Navbar = ({ activePanel, onTogglePanel, mobileOpen, setMobileOpen }) => {
             <div className="nav-item">
               <button
                 className={`nav-link ${activePanel === 'profiles' ? 'active' : ''}`}
-                onClick={() => onTogglePanel('profiles')}
+                onClick={() => handleNavClick('profiles')}
               >
                 Profiles
               </button>
@@ -39,7 +44,7 @@ const Navbar = ({ activePanel, onTogglePanel, mobileOpen, setMobileOpen }) => {
             <div className="nav-item">
               <button
                 className={`nav-link ${activePanel === 'contact' ? 'active' : ''}`}
-                onClick={() => onTogglePanel('contact')}
+                onClick={() => handleNavClick('contact')}
               >
                 Contact
               </button>
@@ -48,7 +53,7 @@ const Navbar = ({ activePanel, onTogglePanel, mobileOpen, setMobileOpen }) => {
             <div className="nav-item">
               <button
                 className={`nav-link ${activePanel === 'admin' ? 'active' : ''}`}
-                onClick={() => onTogglePanel('admin')}
+                onClick={() => handleNavClick('admin')}
               >
                 <img src="/profile.jpg" alt="Profile" className="admin-avatar" />
               </button>

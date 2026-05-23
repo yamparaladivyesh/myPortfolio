@@ -5,13 +5,20 @@ import { LuShield, LuLock, LuArrowRight } from 'react-icons/lu';
 const AdminLoginModal = ({ open, onClose, onUnlock }) => {
   const [password, setPassword] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!password.trim()) return;
-    onUnlock();
-    setPassword('');
+    setIsSubmitting(true);
+    const success = await onUnlock(password.trim());
+    setIsSubmitting(false);
+    if (success) {
+      setPassword('');
+    }
   };
+
+  if (!open) return null;
 
   return (
     <ModalWrapper open={open} onClose={onClose} title="" className="admin-login-modal">
@@ -40,11 +47,11 @@ const AdminLoginModal = ({ open, onClose, onUnlock }) => {
             />
           </div>
 
-          <button className="admin-unlock-button" type="submit">
+          <button className="admin-unlock-button" type="submit" disabled={isSubmitting}>
             <span className="unlock-icon">
               <LuArrowRight />
             </span>
-            <span>Access Dashboard</span>
+            <span>{isSubmitting ? 'Checking...' : 'Access Dashboard'}</span>
           </button>
 
           <p className="admin-security-note">Secure portfolio management access</p>

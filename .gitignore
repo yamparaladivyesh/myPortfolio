@@ -1,19 +1,23 @@
-# Node modules
+# Frontend
 frontend/node_modules
-
-# React build folder
 frontend/build
+
+# Backend
+backend/venv/
+backend/__pycache__/
 
 # Environment variables
 .env
+backend/.env
+frontend/.env
 
-# Python cache (for Flask later)
+# Python cache
 __pycache__/
 *.pyc
 
-# VS Code settings
+# VS Code
 .vscode/
 
-# Mac/Windows system files
+# System files
 .DS_Store
 Thumbs.db

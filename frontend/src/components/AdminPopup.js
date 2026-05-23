@@ -1,10 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { LuSettings2, LuFolder, LuPencil, LuTrash2, LuGripVertical, LuX } from 'react-icons/lu';
+import {
+  addSkill,
+  deleteSkill,
+  reorderSkills,
+  addProject,
+  updateProject,
+  deleteProject,
+  reorderProjects,
+  SKILL_CATEGORY_ORDER,
+} from '../api';
 
-const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups, projectList, onUpdateProjects, onMoveProject }) => {
+const AdminPopup = ({
+  open,
+  onClose,
+  onLogout,
+  skillGroups,
+  onUpdateSkillGroups,
+  projectList,
+  onUpdateProjects,
+  onRefreshSkills,
+  onRefreshProjects,
+}) => {
   const [activeTab, setActiveTab] = useState('skills');
   const [newSkillName, setNewSkillName] = useState('');
-  const [newSkillCategory, setNewSkillCategory] = useState('Frontend');
+  const [newSkillCategory, setNewSkillCategory] = useState('');
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectSummary, setNewProjectSummary] = useState('');
   const [newProjectStack, setNewProjectStack] = useState('');
@@ -16,27 +37,43 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
   const [draggedProjectIndex, setDraggedProjectIndex] = useState(null);
   const [editingProjectIndex, setEditingProjectIndex] = useState(null);
 
+  useEffect(() => {
+    if (open) {
+      setActiveTab('skills');
+    }
+  }, [open]);
+
   if (!open) return null;
 
-  const handleAddSkill = (event) => {
+  const handleAddSkill = async (event) => {
     event.preventDefault();
-    if (!newSkillName.trim()) return;
-    const updated = skillGroups.map((group) =>
-      group.title === newSkillCategory
-        ? { ...group, items: [...group.items, newSkillName.trim()] }
-        : group
-    );
-    onUpdateSkillGroups(updated);
-    setNewSkillName('');
+    if (!newSkillName.trim()) {
+      return;
+    }
+    if (!newSkillCategory) {
+      toast.error('Please select a category.');
+      return;
+    }
+
+    try {
+      await addSkill({ name: newSkillName.trim(), category: newSkillCategory });
+      toast.success('Skill added');
+      setNewSkillName('');
+      setNewSkillCategory('');
+      await onRefreshSkills();
+    } catch (error) {
+      toast.error('Unable to add skill.');
+    }
   };
 
-  const handleDeleteSkill = (category, skill) => {
-    const updated = skillGroups.map((group) =>
-      group.title === category
-        ? { ...group, items: group.items.filter((item) => item !== skill) }
-        : group
-    );
-    onUpdateSkillGroups(updated);
+  const handleDeleteSkill = async (skillId) => {
+    try {
+      await deleteSkill(skillId);
+      toast.success('Skill deleted');
+      await onRefreshSkills();
+    } catch (error) {
+      toast.error('Unable to delete skill.');
+    }
   };
 
   const handleSkillDragStart = (e, categoryIndex, skillIndex) => {
@@ -48,17 +85,27 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
     e.preventDefault();
   };
 
-  const handleSkillDrop = (e, categoryIndex, targetSkillIndex) => {
+  const handleSkillDrop = async (e, categoryIndex, targetSkillIndex) => {
     e.preventDefault();
     if (draggedSkillCategory === categoryIndex && draggedSkillIndex !== targetSkillIndex) {
+      const originalGroups = JSON.parse(JSON.stringify(skillGroups));
       const group = skillGroups[categoryIndex];
       const items = [...group.items];
       const [draggedItem] = items.splice(draggedSkillIndex, 1);
       items.splice(targetSkillIndex, 0, draggedItem);
-      const updated = skillGroups.map((g, idx) =>
-        idx === categoryIndex ? { ...g, items } : g
-      );
+      const updated = skillGroups.map((g, idx) => (idx === categoryIndex ? { ...g, items } : g));
       onUpdateSkillGroups(updated);
+
+      // Build minimal payload for this category only: [{ id, category_order }]
+      const payload = items.map((s, idx) => ({ id: s.id, category_order: idx + 1 }));
+      try {
+        await reorderSkills(payload);
+        toast.success('Skill order saved');
+        await onRefreshSkills();
+      } catch (error) {
+        toast.error('Unable to save skill order.');
+        onUpdateSkillGroups(originalGroups);
+      }
     }
     setDraggedSkillIndex(null);
     setDraggedSkillCategory(null);
@@ -74,38 +121,49 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
     setNewProjectDemo('');
   };
 
-  const handleProjectSubmit = (event) => {
+  const handleProjectSubmit = async (event) => {
     event.preventDefault();
     if (!newProjectTitle.trim()) return;
 
     const nextProject = {
       title: newProjectTitle.trim(),
-      stack: newProjectStack.split(',').map((item) => item.trim()).filter(Boolean),
-      summary: newProjectSummary.trim(),
-      features: newProjectFeatures.split(',').map((item) => item.trim()).filter(Boolean),
-      github: newProjectGithub.trim() || '#',
-      liveDemo: newProjectDemo.trim(),
+      technologies: newProjectStack.trim(),
+      description: newProjectSummary.trim(),
+      features: newProjectFeatures.trim(),
+      githubLink: newProjectGithub.trim() || '#',
+      liveLink: newProjectDemo.trim(),
     };
 
-    if (editingProjectIndex !== null) {
-      const updated = projectList.map((project, index) =>
-        index === editingProjectIndex ? nextProject : project
-      );
-      onUpdateProjects(updated);
-    } else {
-      onUpdateProjects([...projectList, nextProject]);
+    try {
+      if (editingProjectIndex !== null) {
+        const project = projectList[editingProjectIndex];
+        await updateProject({ ...nextProject, id: project?.id });
+        toast.success('Project updated');
+      } else {
+        await addProject(nextProject);
+        toast.success('Project added');
+      }
+      await onRefreshProjects();
+      resetProjectForm();
+    } catch (error) {
+      toast.error('Unable to save project.');
     }
-
-    resetProjectForm();
   };
 
-  const handleDeleteProject = (index) => {
-    const updated = projectList.filter((_, projectIndex) => projectIndex !== index);
-    onUpdateProjects(updated);
-    if (editingProjectIndex === index) {
-      resetProjectForm();
-    } else if (editingProjectIndex !== null && index < editingProjectIndex) {
-      setEditingProjectIndex(editingProjectIndex - 1);
+  const handleDeleteProject = async (index) => {
+    const project = projectList[index];
+
+    try {
+      await deleteProject(project);
+      toast.success('Project deleted');
+      await onRefreshProjects();
+      if (editingProjectIndex === index) {
+        resetProjectForm();
+      } else if (editingProjectIndex !== null && index < editingProjectIndex) {
+        setEditingProjectIndex(editingProjectIndex - 1);
+      }
+    } catch (error) {
+      toast.error('Unable to delete project.');
     }
   };
 
@@ -113,11 +171,11 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
     const project = projectList[index];
     setEditingProjectIndex(index);
     setNewProjectTitle(project.title);
-    setNewProjectSummary(project.summary);
-    setNewProjectStack(project.stack.join(', '));
-    setNewProjectFeatures(project.features.join(', '));
-    setNewProjectGithub(project.github);
-    setNewProjectDemo(project.liveDemo || '');
+    setNewProjectSummary(project.description || '');
+    setNewProjectStack(typeof project.technologies === 'string' ? project.technologies : '');
+    setNewProjectFeatures(typeof project.features === 'string' ? project.features : '');
+    setNewProjectGithub(project.githubLink || '');
+    setNewProjectDemo(project.liveLink || '');
     setActiveTab('projects');
   };
 
@@ -129,13 +187,32 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
     e.preventDefault();
   };
 
-  const handleProjectDrop = (e, targetIndex) => {
+  const handleProjectDrop = async (e, targetIndex) => {
     e.preventDefault();
     if (draggedProjectIndex !== null && draggedProjectIndex !== targetIndex) {
-      const newProjects = [...projectList];
-      const [draggedProject] = newProjects.splice(draggedProjectIndex, 1);
-      newProjects.splice(targetIndex, 0, draggedProject);
-      onUpdateProjects(newProjects);
+      const updatedProjects = [...projectList];
+      const [draggedProject] = updatedProjects.splice(draggedProjectIndex, 1);
+      updatedProjects.splice(targetIndex, 0, draggedProject);
+
+      const updatedWithOrder = updatedProjects.map((project, index) => ({
+        ...project,
+        order: index + 1,
+      }));
+      const reorderPayload = updatedWithOrder.map((project) => ({
+        id: project.id,
+        order: project.order,
+      }));
+
+      onUpdateProjects(updatedWithOrder);
+
+      try {
+        await reorderProjects(reorderPayload);
+        toast.success('Project order saved');
+        await onRefreshProjects();
+      } catch (error) {
+        toast.error('Unable to save project order.');
+        onUpdateProjects(projectList);
+      }
     }
     setDraggedProjectIndex(null);
   };
@@ -198,7 +275,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                   <div className="form-group">
                     <input
                       type="text"
-                      placeholder="Enter skill name"
+                      placeholder="Enter Skill"
                       value={newSkillName}
                       onChange={(e) => setNewSkillName(e.target.value)}
                       className="admin-input"
@@ -210,9 +287,12 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                       onChange={(e) => setNewSkillCategory(e.target.value)}
                       className="admin-select"
                     >
-                      {skillGroups.map((group) => (
-                        <option key={group.title} value={group.title}>
-                          {group.title}
+                      <option value="" disabled>
+                        Select Category
+                      </option>
+                      {SKILL_CATEGORY_ORDER.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
                         </option>
                       ))}
                     </select>
@@ -231,18 +311,18 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                     <div className="skill-pills-grid">
                       {group.items.map((skill, skillIndex) => (
                         <div
-                          key={skill}
+                          key={skill.id}
                           className={`skill-pill ${draggedSkillIndex === skillIndex && draggedSkillCategory === categoryIndex ? 'dragging' : ''}`}
                           draggable
                           onDragStart={(e) => handleSkillDragStart(e, categoryIndex, skillIndex)}
                           onDragOver={handleSkillDragOver}
                           onDrop={(e) => handleSkillDrop(e, categoryIndex, skillIndex)}
                         >
-                          <span>{skill}</span>
+                          <span>{skill.name}</span>
                           <button
                             type="button"
                             className="skill-delete-btn"
-                            onClick={() => handleDeleteSkill(group.title, skill)}
+                            onClick={() => handleDeleteSkill(skill.id)}
                             title="Delete skill"
                           >
                             ×
@@ -265,7 +345,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                   <div className="form-row">
                     <input
                       type="text"
-                      placeholder="Project title"
+                      placeholder="Project Title"
                       value={newProjectTitle}
                       onChange={(e) => setNewProjectTitle(e.target.value)}
                       className="admin-input"
@@ -273,7 +353,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                     />
                     <input
                       type="text"
-                      placeholder="Tech stack (comma separated)"
+                      placeholder="Tech Stack"
                       value={newProjectStack}
                       onChange={(e) => setNewProjectStack(e.target.value)}
                       className="admin-input"
@@ -283,7 +363,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                   <div className="form-row">
                     <input
                       type="text"
-                      placeholder="Description"
+                      placeholder="Project Description"
                       value={newProjectSummary}
                       onChange={(e) => setNewProjectSummary(e.target.value)}
                       className="admin-input"
@@ -291,7 +371,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                     />
                     <input
                       type="text"
-                      placeholder="Features (comma separated)"
+                      placeholder="Project Features"
                       value={newProjectFeatures}
                       onChange={(e) => setNewProjectFeatures(e.target.value)}
                       className="admin-input"
@@ -301,7 +381,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                   <div className="form-row">
                     <input
                       type="url"
-                      placeholder="GitHub link"
+                      placeholder="GitHub Link"
                       value={newProjectGithub}
                       onChange={(e) => setNewProjectGithub(e.target.value)}
                       className="admin-input"
@@ -309,7 +389,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                     />
                     <input
                       type="url"
-                      placeholder="Demo link"
+                      placeholder="Demo Link"
                       value={newProjectDemo}
                       onChange={(e) => setNewProjectDemo(e.target.value)}
                       className="admin-input"
@@ -338,7 +418,7 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                 ) : (
                   projectList.map((project, index) => (
                     <div
-                      key={index}
+                      key={project.id ?? index}
                       className={`project-card ${draggedProjectIndex === index ? 'dragging' : ''}`}
                       draggable
                       onDragStart={(e) => handleProjectDragStart(e, index)}
@@ -350,10 +430,15 @@ const AdminPopup = ({ open, onClose, onLogout, skillGroups, onUpdateSkillGroups,
                       </div>
                       <div className="project-card-content">
                         <h4 className="project-title">{project.title}</h4>
-                        <p className="project-summary">{project.summary || 'No description'}</p>
-                        {project.stack && project.stack.length > 0 && (
+                        <p className="project-summary">{project.description || 'No description'}</p>
+                        {project.technologies && (
                           <div className="project-stack">
-                            {project.stack.map((tech) => (
+                            {(typeof project.technologies === 'string'
+                              ? project.technologies.split(',').map((t) => t.trim()).filter(Boolean)
+                              : Array.isArray(project.technologies)
+                              ? project.technologies
+                              : []
+                            ).map((tech) => (
                               <span key={tech} className="tech-badge">
                                 {tech}
                               </span>

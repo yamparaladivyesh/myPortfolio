@@ -88,7 +88,7 @@ img {
   position: fixed;
   inset: 0 auto auto 0;
   width: 100%;
-  z-index: 80;
+  z-index: 90;
   background: linear-gradient(to right, #0F172A, #111827);
   border-bottom: 1px solid rgba(59, 130, 246, 0.20);
   box-shadow: 0 18px 32px rgba(15, 23, 42, 0.15);
@@ -283,6 +283,34 @@ img {
   display: grid;
   place-items: center;
   min-height: auto;
+}
+
+/* Ensure react-hot-toast toasts render above modals and apply subtle glass effect */
+body > .react-hot-toast,
+.toast-container,
+[data-sonner-toaster],
+.react-hot-toast {
+  position: fixed !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  left: auto !important;
+  bottom: auto !important;
+  z-index: 1000020 !important;
+  pointer-events: none;
+}
+body > .react-hot-toast > div,
+.toast-container > div,
+[data-sonner-toaster] > div,
+.react-hot-toast > div {
+  position: relative !important;
+  pointer-events: auto;
+  backdrop-filter: blur(6px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(120%) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 6px 20px rgba(2,6,23,0.35) !important;
+  border-radius: 12px !important;
+  z-index: 1000021 !important;
 }
 
 .hero-glow {
@@ -693,7 +721,7 @@ img {
 
 .skills-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.25rem;
 }
 
@@ -956,14 +984,15 @@ img {
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 1rem;
-  align-items: stretch;
+  align-items: start;
 }
 
 .match-circle-card {
   display: grid;
-  gap: 1rem;
-  padding: 1.75rem;
-  min-height: 240px;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  min-height: auto;
+  place-items: center;
   border-radius: 24px;
   border: 1px solid #E6EAF2;
   background: #ffffff;
@@ -972,8 +1001,8 @@ img {
 
 .match-analysis-box {
   display: grid;
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 0.85rem;
+  padding: 1.2rem;
   border-radius: 24px;
   background: #ffffff;
   border: 1px solid #E6EAF2;
@@ -1038,17 +1067,18 @@ img {
 .match-graph {
   display: grid;
   place-items: center;
-  width: 180px;
-  height: 180px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   background: conic-gradient(rgba(37, 99, 235, 0.2) 0%, rgba(37, 99, 235, 0.85) 76%, rgba(203, 213, 225, 0.3) 76%, rgba(203, 213, 225, 1) 100%);
   position: relative;
+  transition: background 0.8s ease;
 }
 
 .match-graph::before {
   content: '';
   position: absolute;
-  inset: 16px;
+  inset: 12px;
   border-radius: 50%;
   background: #F7F9FC;
 }
@@ -1061,7 +1091,7 @@ img {
 
 .match-graph strong {
   display: block;
-  font-size: 2rem;
+  font-size: 1.75rem;
   color: var(--text-primary);
 }
 
@@ -1092,33 +1122,50 @@ img {
   font-size: 0.9rem;
 }
 
-.skill-match-tag-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.skillmatch-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
 }
 
-.skill-match-tag,
-.skill-miss-tag {
-  padding: 0.65rem 0.95rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 600;
+.skillmatch-list-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.75rem 0.85rem;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
 
-.skill-match-tag {
-  background: rgba(34, 197, 94, 0.12);
-  color: #16A34A;
+.skillmatch-list-item.success {
+  border-color: rgba(16, 185, 129, 0.16);
 }
 
-.skill-miss-tag {
-  background: rgba(239, 68, 68, 0.12);
-  color: #DC2626;
+.skillmatch-list-item.missing {
+  border-color: rgba(239, 68, 68, 0.12);
+}
+
+.skillmatch-list-icon {
+  min-width: 1.3rem;
+  min-height: 1.3rem;
+  display: grid;
+  place-items: center;
+  color: rgba(37, 99, 235, 0.9);
+  font-size: 1.15rem;
+}
+
+.skillmatch-list-item.missing .skillmatch-list-icon {
+  color: rgba(220, 38, 38, 0.9);
 }
 
 .match-graph span {
   display: block;
   color: #64748B;
+  margin-top: 0.15rem;
 }
 
 .profiles-grid,
@@ -1163,12 +1210,13 @@ img {
 .profile-copy,
 .contact-card-copy {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.06rem;
 }
 
 .profile-copy strong,
 .contact-card-copy span {
   font-size: 1rem;
+  line-height: 1.15;
   color: var(--text-primary);
 }
 
@@ -1626,7 +1674,7 @@ img {
 }
 
 .skills-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .skill-group {
@@ -2485,8 +2533,10 @@ img {
 
   .navbar-menu {
     position: absolute;
-    top: 76px;
-    inset: auto 0 0 0;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
     background: var(--bg-navbar);
     padding: 1rem 1.2rem 1.4rem;
     opacity: 0;
@@ -2494,6 +2544,7 @@ img {
     pointer-events: none;
     transform: translateY(-8px);
     transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+    z-index: 90;
   }
 
   .navbar-menu.open {

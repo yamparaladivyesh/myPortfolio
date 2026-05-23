@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import './App.css';
 import Navbar from './components/Navbar';
 import HeroSection from './components/HeroSection';
@@ -11,19 +12,22 @@ import ContactDropdown from './components/ContactDropdown';
 import AdminLoginModal from './components/AdminLoginModal';
 import AdminPopup from './components/AdminPopup';
 import Footer from './components/Footer';
-import { projectList as initialProjectList, skillGroups as initialSkillGroups } from './data/portfolioData';
+import { getProjects, getSkills, loginAdmin } from './api';
 
 function App() {
   const [activePanel, setActivePanel] = useState(null);
   const [projectIndex, setProjectIndex] = useState(0);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [skillGroups, setSkillGroups] = useState(initialSkillGroups);
-  const [projectList, setProjectList] = useState(initialProjectList);
+  const [skillGroups, setSkillGroups] = useState([]);
+  const [projectList, setProjectList] = useState([]);
 
   const handleTogglePanel = (panelName) => {
     setActivePanel((current) => {
       const next = current === panelName ? null : panelName;
+      if (next === 'projects') {
+        setProjectIndex(0);
+      }
       if (next !== 'admin') {
         setAdminUnlocked(false);
       }
@@ -49,6 +53,32 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const fetchSkills = async () => {
+    try {
+      const groups = await getSkills();
+      setSkillGroups(groups);
+    } catch (error) {
+      toast.error('Unable to load skills from the backend.');
+      setSkillGroups([]);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const projects = await getProjects();
+      setProjectList(projects);
+      setProjectIndex((current) => Math.min(current, projects.length - 1));
+    } catch (error) {
+      toast.error('Unable to load projects from the backend.');
+      setProjectList([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchSkills();
+    fetchProjects();
+  }, []);
+
   const handleChangeProject = (direction) => {
     setProjectIndex((current) => {
       if (direction === 'next' && current < projectList.length - 1) {
@@ -70,18 +100,20 @@ function App() {
     setProjectIndex((current) => Math.min(current, newProjects.length - 1));
   };
 
-  const handleMoveProject = (index, direction) => {
-    setProjectList((currentProjects) => {
-      const next = [...currentProjects];
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= next.length) return next;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
-
-  const handleAdminUnlock = () => {
-    setAdminUnlocked(true);
+  const handleAdminUnlock = async (password) => {
+    try {
+      const success = await loginAdmin(password);
+      if (success) {
+        toast.success('Admin access granted');
+        setAdminUnlocked(true);
+        return true;
+      }
+      toast.error('Incorrect password. Please try again.');
+      return false;
+    } catch (error) {
+      toast.error('Unable to reach admin service.');
+      return false;
+    }
   };
 
   const handleAdminLogout = () => {
@@ -89,45 +121,101 @@ function App() {
     setActivePanel(null);
   };
 
+  const handleRefreshSkills = async () => {
+    await fetchSkills();
+  };
+
+  const handleRefreshProjects = async () => {
+    await fetchProjects();
+  };
+
   return (
-    <div className="app-shell">
-      <Navbar
-        activePanel={activePanel}
-        onTogglePanel={handleTogglePanel}
-        mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
+    <>
+      <Toaster
+        position="top-right"
+        containerStyle={{
+          position: 'fixed',
+          top: '1rem',
+          right: '1rem',
+          zIndex: 1000015,
+        }}
+        toastOptions={{
+          duration: 3600,
+          style: {
+            background: 'rgba(17, 24, 39, 0.95)',
+            color: '#ffffff',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          },
+          success: {
+            style: {
+              background: 'rgba(17, 24, 39, 0.95)',
+              color: '#ffffff',
+              border: '1px solid rgba(34, 197, 94, 0.3)',
+              borderRadius: '12px',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            },
+          },
+          error: {
+            style: {
+              background: 'rgba(17, 24, 39, 0.95)',
+              color: '#ffffff',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '12px',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            },
+          },
+        }}
       />
+      <div className="app-shell">
+        <Navbar
+          activePanel={activePanel}
+          onTogglePanel={handleTogglePanel}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+        />
 
-      <main className="page-content">
-        <HeroSection />
+        <main className="page-content">
+          <HeroSection />
 
-        <Footer />
-      </main>
+          <Footer />
+        </main>
 
-      <AboutModal open={activePanel === 'about'} onClose={handleClosePanel} />
-      <SkillsModal open={activePanel === 'skills'} onClose={handleClosePanel} skillGroups={skillGroups} />
-      <ProjectsModal
-        open={activePanel === 'projects'}
-        onClose={handleClosePanel}
-        projectIndex={projectIndex}
-        onChangeProject={handleChangeProject}
-        projectList={projectList}
-      />
-      <SkillMatchModal open={activePanel === 'skillmatch'} onClose={handleClosePanel} />
-      <ProfilesDropdown open={activePanel === 'profiles'} onClose={handleClosePanel} />
-      <ContactDropdown open={activePanel === 'contact'} onClose={handleClosePanel} />
-      <AdminLoginModal open={activePanel === 'admin' && !adminUnlocked} onClose={handleClosePanel} onUnlock={handleAdminUnlock} />
-      <AdminPopup
-        open={activePanel === 'admin' && adminUnlocked}
-        onClose={handleClosePanel}
-        onLogout={handleAdminLogout}
-        skillGroups={skillGroups}
-        onUpdateSkillGroups={handleUpdateSkillGroups}
-        projectList={projectList}
-        onUpdateProjects={handleUpdateProjects}
-        onMoveProject={handleMoveProject}
-      />
-    </div>
+        <AboutModal open={activePanel === 'about'} onClose={handleClosePanel} />
+        <SkillsModal open={activePanel === 'skills'} onClose={handleClosePanel} skillGroups={skillGroups} />
+        <ProjectsModal
+          open={activePanel === 'projects'}
+          onClose={handleClosePanel}
+          projectIndex={projectIndex}
+          onChangeProject={handleChangeProject}
+          projectList={projectList}
+        />
+        <SkillMatchModal
+          open={activePanel === 'skillmatch'}
+          onClose={handleClosePanel}
+          skillGroups={skillGroups}
+          projectList={projectList}
+        />
+        <ProfilesDropdown open={activePanel === 'profiles'} onClose={handleClosePanel} />
+        <ContactDropdown open={activePanel === 'contact'} onClose={handleClosePanel} />
+        <AdminLoginModal open={activePanel === 'admin' && !adminUnlocked} onClose={handleClosePanel} onUnlock={handleAdminUnlock} />
+        <AdminPopup
+          open={activePanel === 'admin' && adminUnlocked}
+          onClose={handleClosePanel}
+          onLogout={handleAdminLogout}
+          skillGroups={skillGroups}
+          onUpdateSkillGroups={handleUpdateSkillGroups}
+          projectList={projectList}
+          onUpdateProjects={handleUpdateProjects}
+          onRefreshSkills={handleRefreshSkills}
+          onRefreshProjects={handleRefreshProjects}
+        />
+      </div>
+    </>
   );
 }
 
